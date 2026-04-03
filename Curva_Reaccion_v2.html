@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Curva de Reacción – Método Smith</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #080d14;
+    --panel:     #0d1520;
+    --border:    #1a3050;
+    --accent:    #00d4ff;
+    --accent2:   #00ff9d;
+    --accent3:   #ff6b35;
+    --text:      #c8ddf0;
+    --text-dim:  #4a6a85;
+    --label:     #7eb8d4;
+    --error:     #ff4560;
+    --mono:      'Share Tech Mono', monospace;
+    --sans:      'Exo 2', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    padding: 24px 16px 60px;
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(0,212,255,0.07) 0%, transparent 70%),
+      repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(0,212,255,0.03) 40px),
+      repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(0,212,255,0.03) 40px);
+  }
+
+  /* ── HEADER ── */
+  header {
+    text-align: center;
+    margin-bottom: 36px;
+  }
+  .badge {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 4px;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    padding: 3px 12px;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+  }
+  header h1 {
+    font-size: clamp(22px, 4vw, 36px);
+    font-weight: 900;
+    letter-spacing: 1px;
+    color: #fff;
+    line-height: 1.15;
+  }
+  header h1 span { color: var(--accent); }
+  header p {
+    margin-top: 6px;
+    font-size: 13px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+  }
+
+  /* ── LAYOUT ── */
+  .wrapper {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: grid;
+    gap: 20px;
+  }
+
+  /* ── CARD ── */
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  }
+  .card.green::before  { background: linear-gradient(90deg, transparent, var(--accent2), transparent); }
+  .card.orange::before { background: linear-gradient(90deg, transparent, var(--accent3), transparent); }
+
+  .card-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-title .dot { width:6px; height:6px; border-radius:50%; background:var(--accent); flex-shrink:0; }
+  .card.green  .card-title, .card.green  .card-title .dot { color:var(--accent2); background:var(--accent2); }
+  .card.orange .card-title, .card.orange .card-title .dot { color:var(--accent3); background:var(--accent3); }
+
+  /* ── INPUTS GRID ── */
+  .input-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 14px;
+  }
+
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--label);
+    text-transform: uppercase;
+  }
+  .field input {
+    background: rgba(0,212,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: #fff;
+    font-family: var(--mono);
+    font-size: 14px;
+    padding: 9px 12px;
+    transition: border-color .2s, box-shadow .2s;
+    outline: none;
+    width: 100%;
+  }
+  .field input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(0,212,255,0.12);
+  }
+  .field input.time-input { letter-spacing: 1px; }
+  .field .hint {
+    font-size: 10px;
+    color: var(--text-dim);
+    font-family: var(--mono);
+  }
+
+  /* ── BUTTON ── */
+  .btn-row { display:flex; justify-content:center; gap:12px; margin-top:8px; }
+  .btn {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    padding: 12px 36px;
+    border: 1px solid var(--accent);
+    background: transparent;
+    color: var(--accent);
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all .2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .btn::after {
+    content:'';
+    position:absolute;
+    inset:0;
+    background: var(--accent);
+    opacity:0;
+    transition: opacity .2s;
+  }
+  .btn:hover { color:#000; }
+  .btn:hover::after { opacity:1; }
+  .btn span { position:relative; z-index:1; }
+  .btn.reset {
+    border-color: var(--text-dim);
+    color: var(--text-dim);
+  }
+  .btn.reset:hover { color:#000; }
+  .btn.reset::after { background: var(--text-dim); }
+
+  /* ── RESULTADOS INTERMEDIOS ── */
+  .results-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+  }
+  .result-box {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .result-box .r-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+  }
+  .result-box .r-val {
+    font-family: var(--mono);
+    font-size: 18px;
+    font-weight: bold;
+    color: var(--accent);
+  }
+  .result-box .r-unit {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text-dim);
+  }
+  .result-box.green .r-val  { color: var(--accent2); }
+  .result-box.orange .r-val { color: var(--accent3); }
+  .result-box.white  .r-val { color: #fff; }
+
+  /* ── TABLA DE SINTONIZACIÓN ── */
+  .tune-tables {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  @media(max-width:680px){ .tune-tables { grid-template-columns:1fr; } }
+
+  .tune-table-wrap h3 {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--label);
+    margin-bottom: 10px;
+    text-transform: uppercase;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 13px;
+  }
+  thead tr { background: rgba(0,212,255,0.06); }
+  th {
+    padding: 8px 10px;
+    text-align: center;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--accent);
+    border-bottom: 1px solid var(--border);
+    text-transform: uppercase;
+  }
+  td {
+    padding: 10px 10px;
+    text-align: center;
+    border-bottom: 1px solid rgba(26,48,80,0.5);
+    color: var(--text);
+  }
+  tr:hover td { background: rgba(0,212,255,0.03); }
+  td.ctrl { color: #fff; font-weight:700; font-size:14px; }
+  td.val  { color: var(--accent2); }
+
+  /* ── ERROR ── */
+  .error-msg {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--error);
+    background: rgba(255,69,96,0.08);
+    border: 1px solid rgba(255,69,96,0.3);
+    border-radius: 3px;
+    padding: 10px 14px;
+    margin-top: 14px;
+    display: none;
+  }
+  .error-msg.show { display: block; }
+
+  /* ── SEPARATOR ── */
+  .sep {
+    height:1px;
+    background: linear-gradient(90deg, transparent, var(--border), transparent);
+    margin: 6px 0 18px;
+  }
+
+  /* ── FORMULA HINT ── */
+  .formula-block {
+    background: rgba(0,0,0,0.25);
+    border-left: 2px solid var(--accent);
+    padding: 10px 14px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    border-radius: 0 3px 3px 0;
+    line-height: 1.8;
+    margin-bottom: 18px;
+  }
+  .formula-block span { color: var(--accent); }
+
+
+  /* FUNCION DE TRANSFERENCIA */
+  .ft-display { display:flex; align-items:center; justify-content:center; gap:20px; flex-wrap:wrap; padding:10px 0 6px; }
+  .fraction { display:inline-flex; flex-direction:column; align-items:center; font-family:var(--mono); font-size:15px; gap:2px; }
+  .fraction .num { color:var(--accent2); padding-bottom:4px; border-bottom:1px solid var(--accent2); white-space:nowrap; }
+  .fraction .den { color:var(--text); padding-top:4px; white-space:nowrap; }
+  .ft-eq    { font-family:var(--mono); font-size:20px; color:var(--accent); align-self:center; }
+  .ft-times { font-family:var(--mono); font-size:16px; color:var(--text-dim); align-self:center; }
+  .ft-delay { font-family:var(--mono); font-size:15px; color:var(--accent3); align-self:center; }
+  .ft-label-top { font-family:var(--mono); font-size:10px; letter-spacing:2px; color:var(--text-dim); text-align:center; margin-bottom:10px; }
+
+  /* ROUTH TABLE */
+  .routh-wrap { overflow-x:auto; }
+  table.routh td.row-label { color:var(--accent); font-weight:bold; font-size:12px; text-align:left; min-width:60px; }
+  table.routh td.rval { color:var(--accent2); font-size:13px; }
+  table.routh td.rval.neg { color:var(--error); }
+
+  /* ESTABILIDAD */
+  .stability-result { margin-top:18px; padding:16px 20px; border-radius:4px; font-family:var(--mono); font-size:13px; line-height:1.8; }
+  .stability-result.stable   { background:rgba(0,255,157,0.07); border:1px solid rgba(0,255,157,0.3); }
+  .stability-result.unstable { background:rgba(255,69,96,0.07);  border:1px solid rgba(255,69,96,0.3); }
+  .stability-result .s-title { font-size:11px; letter-spacing:3px; text-transform:uppercase; margin-bottom:8px; }
+  .stability-result.stable   .s-title { color:var(--accent2); }
+  .stability-result.unstable .s-title { color:var(--error); }
+  .stability-result .s-kp   { color:var(--accent); font-size:15px; }
+  .stability-result .s-note { color:var(--text-dim); font-size:11px; margin-top:6px; }
+  .pade-expand { font-family:var(--mono); font-size:12px; color:var(--text-dim); line-height:2.2; margin-bottom:14px; }
+  .pade-expand span { color:var(--accent3); }
+  .pade-expand b    { color:var(--text); }
+
+  /* hidden by default */
+  #results-section { display:none; }
+
+  /* ── FUNCIÓN DE TRANSFERENCIA ── */
+  .ft-display {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    flex-wrap: wrap;
+    padding: 10px 0 6px;
+  }
+  .fraction {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    font-family: var(--mono);
+    font-size: 15px;
+    gap: 2px;
+  }
+  .fraction .num { color: var(--accent2); padding-bottom: 4px; border-bottom: 1px solid var(--accent2); }
+  .fraction .den { color: var(--text); padding-top: 4px; }
+  .ft-eq    { font-family:var(--mono); font-size:20px; color:var(--accent); align-self:center; }
+  .ft-times { font-family:var(--mono); font-size:16px; color:var(--text-dim); align-self:center; }
+  .ft-delay { font-family:var(--mono); font-size:15px; color:var(--accent3); align-self:center; }
+  .ft-label-top { font-family:var(--mono); font-size:10px; letter-spacing:2px; color:var(--text-dim); text-align:center; margin-bottom:10px; }
+
+  /* ── ROUTH TABLE ── */
+  .routh-wrap { overflow-x: auto; }
+  table.routh td.row-label { color:var(--accent); font-weight:bold; font-size:12px; text-align:left; min-width:60px; }
+  table.routh td.rval      { color:var(--accent2); font-size:13px; }
+  table.routh td.rval.neg  { color:var(--error); }
+
+  /* ── ESTABILIDAD BADGE ── */
+  .stability-result {
+    margin-top: 18px; padding: 16px 20px; border-radius: 4px;
+    font-family: var(--mono); font-size: 13px; line-height: 1.8;
+  }
+  .stability-result.stable   { background:rgba(0,255,157,0.07); border:1px solid rgba(0,255,157,0.3); }
+  .stability-result.unstable { background:rgba(255,69,96,0.07);  border:1px solid rgba(255,69,96,0.3); }
+  .stability-result .s-title { font-size:11px; letter-spacing:3px; text-transform:uppercase; margin-bottom:8px; }
+  .stability-result.stable   .s-title { color:var(--accent2); }
+  .stability-result.unstable .s-title { color:var(--error); }
+  .stability-result .s-kp   { color:var(--accent); font-size:15px; }
+  .stability-result .s-note { color:var(--text-dim); font-size:11px; margin-top:6px; }
+
+  .pade-expand { font-family:var(--mono); font-size:12px; color:var(--text-dim); line-height:2.2; margin-bottom:14px; }
+  .pade-expand span { color:var(--accent3); }
+  .pade-expand b    { color:var(--text); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="badge">Control de Procesos</div>
+  <h1>Curva de Reacción — <span>Método Smith</span></h1>
+  <p>Sintonización de controladores PID · 2 puntos (28.3% / 63.2%)</p>
+</header>
+
+<div class="wrapper">
+
+  <!-- PASO 1: Datos del proceso -->
+  <div class="card">
+    <div class="card-title"><div class="dot"></div> Paso 1 — Datos de la Variable de Proceso (PV) y Salida (OUT)</div>
+    <div class="input-grid">
+      <div class="field">
+        <label>PV máx</label>
+        <input type="number" id="pvmax" placeholder="ej. 100" step="any">
+        <span class="hint">Valor máximo de PV (EU)</span>
+      </div>
+      <div class="field">
+        <label>PV mín</label>
+        <input type="number" id="pvmin" placeholder="ej. 0" step="any">
+        <span class="hint">Valor mínimo de PV (EU)</span>
+      </div>
+      <div class="field">
+        <label>OUT máx</label>
+        <input type="number" id="outmax" placeholder="ej. 100" step="any">
+        <span class="hint">Salida máxima (%)</span>
+      </div>
+      <div class="field">
+        <label>OUT mín</label>
+        <input type="number" id="outmin" placeholder="ej. 0" step="any">
+        <span class="hint">Salida mínima (%)</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- PASO 2: Tiempos -->
+  <div class="card">
+    <div class="card-title"><div class="dot"></div> Paso 2 — Tiempos de la Curva de Reacción</div>
+
+    <div class="formula-block">
+      Formato de hora: <span>hh:mm:ss:ms</span> &nbsp;|&nbsp;
+      t₁ = hora₂₈.₃% − hora_inicial &nbsp;|&nbsp;
+      t₂ = hora₆₃.₂% − hora_inicial &nbsp;(en segundos)
+    </div>
+
+    <div class="input-grid">
+      <div class="field">
+        <label>Hora inicial (OUT cambia)</label>
+        <input type="text" id="t_ini" class="time-input" placeholder="00:00:00:000">
+        <span class="hint">hh:mm:ss:ms (3 dígitos ms)</span>
+      </div>
+      <div class="field">
+        <label>Hora al 28.3% de PV</label>
+        <input type="text" id="t_283" class="time-input" placeholder="00:00:00:000">
+        <span class="hint">hh:mm:ss:ms (3 dígitos ms)</span>
+      </div>
+      <div class="field">
+        <label>Hora al 63.2% de PV</label>
+        <input type="text" id="t_632" class="time-input" placeholder="00:00:00:000">
+        <span class="hint">hh:mm:ss:ms (3 dígitos ms)</span>
+      </div>
+    </div>
+    <div class="error-msg" id="err-msg">⚠ Error: revisa los datos ingresados.</div>
+  </div>
+
+  <!-- BOTONES -->
+  <div class="btn-row">
+    <button class="btn" onclick="calcular()"><span>▶ Calcular</span></button>
+    <button class="btn reset" onclick="resetear()"><span>↺ Limpiar</span></button>
+  </div>
+
+  <!-- RESULTADOS -->
+  <div id="results-section">
+
+    <!-- Intermedios -->
+    <div class="card green">
+      <div class="card-title"><div class="dot"></div> Valores de referencia de la curva</div>
+      <div class="results-grid" id="res-intermedios"></div>
+    </div>
+
+    <!-- Parámetros Smith -->
+    <div class="card">
+      <div class="card-title"><div class="dot"></div> Parámetros del Proceso (Smith)</div>
+      <div class="results-grid" id="res-smith"></div>
+    </div>
+
+    <!-- Tablas de sintonización -->
+    <div class="card orange">
+      <div class="card-title"><div class="dot"></div> Tablas de Sintonización</div>
+
+      <div class="tune-tables">
+        <!-- Tabla Kp Ti Td -->
+        <div class="tune-table-wrap">
+          <h3>Parámetros Clásicos: Kp · Ti · Td</h3>
+          <table id="tabla-clasica">
+            <thead>
+              <tr>
+                <th>Controlador</th>
+                <th>Kp</th>
+                <th>Ti (s)</th>
+                <th>Td (s)</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <!-- Tabla Kp Ki Kd -->
+        <div class="tune-table-wrap">
+          <h3>Parámetros Paralelos: Kp · Ki · Kd</h3>
+          <table id="tabla-paralela">
+            <thead>
+              <tr>
+                <th>Controlador</th>
+                <th>Kp</th>
+                <th>Ki (1/s)</th>
+                <th>Kd (s)</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="sep"></div>
+      <div class="formula-block" style="border-color:var(--accent3)">
+        <span style="color:var(--accent3)">Conversión:</span>
+        Ki = Kp / Ti &nbsp;|&nbsp; Kd = Kp · Td &nbsp;|&nbsp;
+        P no tiene Ti/Td → Ki = 0, Kd = 0
+      </div>
+    </div>
+
+
+    <!-- FT EXACTA -->
+    <div class="card">
+      <div class="card-title"><div class="dot"></div> Funcion de Transferencia del Proceso (1er Orden + Retardo)</div>
+      <div class="ft-label-top">G(s) con retardo puro:</div>
+      <div class="ft-display" id="ft-exact"></div>
+    </div>
+
+    <!-- PADE -->
+    <div class="card green">
+      <div class="card-title"><div class="dot"></div> Aproximacion de Pade &mdash; e^(-Ls) = (1 - Ls/2)/(1 + Ls/2)</div>
+      <div class="pade-expand" id="pade-expand"></div>
+      <div class="ft-label-top">G(s) aproximada resultante:</div>
+      <div class="ft-display" id="ft-pade"></div>
+    </div>
+
+    <!-- ROUTH -->
+    <div class="card orange">
+      <div class="card-title"><div class="dot"></div> Criterio de Estabilidad de Routh-Hurwitz (Controlador P en Lazo Cerrado)</div>
+      <div class="formula-block" style="border-color:var(--accent3);margin-bottom:16px;">
+        <span style="color:var(--accent3)">Lazo cerrado con C(s) = Kp:</span>
+        &nbsp; 1 + Kp&middot;G_pade(s) = 0 &rarr; Polinomio caracteristico de orden 2
+      </div>
+      <div class="pade-expand" id="routh-char-poly"></div>
+      <h3 style="font-family:var(--mono);font-size:10px;letter-spacing:3px;color:var(--label);margin-bottom:10px;text-transform:uppercase;">Tabla de Routh</h3>
+      <div class="routh-wrap">
+        <table class="routh" id="tabla-routh">
+          <thead><tr><th>Fila</th><th>Col 1</th><th>Col 2</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="stability-result" id="stability-result"></div>
+    </div>
+
+  </div><!-- /results-section -->
+</div><!-- /wrapper -->
+
+<script>
+/* ─── UTILIDADES ─── */
+function parseTime(str) {
+  // Acepta hh:mm:ss:ms  o  hh:mm:ss.ms
+  const s = str.trim().replace(/\./g, ':');
+  const parts = s.split(':');
+  if (parts.length < 3) return null;
+  const hh = parseInt(parts[0]) || 0;
+  const mm = parseInt(parts[1]) || 0;
+  const ss = parseInt(parts[2]) || 0;
+  const ms = parseInt(parts[3] || '0') || 0;
+  if ([hh,mm,ss,ms].some(isNaN)) return null;
+  return hh*3600 + mm*60 + ss + ms/1000;
+}
+
+function fmt(v, dec=4) {
+  if (v === null || v === undefined || isNaN(v)) return '—';
+  return parseFloat(v.toFixed(dec)).toString();
+}
+
+function rBox(label, val, unit='', cls='') {
+  return `<div class="result-box ${cls}">
+    <span class="r-label">${label}</span>
+    <span class="r-val">${val}</span>
+    <span class="r-unit">${unit}</span>
+  </div>`;
+}
+
+function showErr(msg) {
+  const el = document.getElementById('err-msg');
+  el.textContent = '⚠ ' + msg;
+  el.classList.add('show');
+}
+function clearErr() {
+  document.getElementById('err-msg').classList.remove('show');
+}
+
+/* ─── CÁLCULO PRINCIPAL ─── */
+function calcular() {
+  clearErr();
+  document.getElementById('results-section').style.display = 'none';
+
+  // Leer PV / OUT
+  const pvmax  = parseFloat(document.getElementById('pvmax').value);
+  const pvmin  = parseFloat(document.getElementById('pvmin').value);
+  const outmax = parseFloat(document.getElementById('outmax').value);
+  const outmin = parseFloat(document.getElementById('outmin').value);
+
+  if ([pvmax,pvmin,outmax,outmin].some(isNaN)) {
+    showErr('Ingresa todos los valores de PV y OUT.'); return;
+  }
+  if (pvmax <= pvmin)  { showErr('PV máx debe ser mayor que PV mín.'); return; }
+  if (outmax <= outmin){ showErr('OUT máx debe ser mayor que OUT mín.'); return; }
+
+  // Leer tiempos
+  const tIni = parseTime(document.getElementById('t_ini').value);
+  const t283 = parseTime(document.getElementById('t_283').value);
+  const t632 = parseTime(document.getElementById('t_632').value);
+
+  if (tIni===null||t283===null||t632===null) {
+    showErr('Formato de hora inválido. Usa hh:mm:ss:ms'); return;
+  }
+  if (t283 <= tIni) { showErr('La hora al 28.3% debe ser posterior a la hora inicial.'); return; }
+  if (t632 <= t283) { showErr('La hora al 63.2% debe ser posterior a la del 28.3%.'); return; }
+
+  /* ── Cálculos base ── */
+  const deltaPV  = pvmax  - pvmin;
+  const deltaOUT = outmax - outmin;
+
+  const pv283 = pvmin + deltaPV * 0.283;
+  const pv632 = pvmin + deltaPV * 0.632;
+
+  const t1 = t283 - tIni;   // tiempo al 28.3% (s)
+  const t2 = t632 - tIni;   // tiempo al 63.2% (s)
+
+  /* ── Parámetros Smith ── */
+  const T = 1.5 * (t2 - t1);          // constante de tiempo
+  const tau = T;                        // τ = T
+  const L = Math.abs(t2 - tau);        // tiempo de retardo (valor absoluto)
+  const K = deltaPV / deltaOUT;        // ganancia del proceso
+
+  if (T <= 0) { showErr('T calculado es ≤ 0. Revisa los tiempos.'); return; }
+
+  if (K <= 0) { showErr('K es ≤ 0. Revisa ΔPV y ΔOUT.'); return; }
+
+  /* ── Sintonización Ziegler-Nichols (fórmulas Smith) ── */
+  const params = {
+    P:   { Kp: T/(K*L),          Ti: null,  Td: null  },
+    PI:  { Kp: 0.9*T/(K*L),      Ti: L/0.3, Td: null  },
+    PID: { Kp: 1.2*T/(K*L),      Ti: 2*L,   Td: 0.5*L }
+  };
+
+  /* Ki = Kp/Ti,  Kd = Kp*Td */
+
+  /* ─── RENDER ─── */
+  document.getElementById('results-section').style.display = 'grid';
+  document.getElementById('results-section').style.gap = '20px';
+
+  // Intermedios
+  document.getElementById('res-intermedios').innerHTML =
+    rBox('PV al 28.3%',  fmt(pv283,4), 'EU',  'green')  +
+    rBox('PV al 63.2%',  fmt(pv632,4), 'EU',  'green')  +
+    rBox('ΔPV',          fmt(deltaPV,4),'EU',  '')       +
+    rBox('ΔOUT',         fmt(deltaOUT,4),'EU', '')       +
+    rBox('t₁ (28.3%)',   fmt(t1,3),    's',   '')       +
+    rBox('t₂ (63.2%)',   fmt(t2,3),    's',   '');
+
+  // Smith
+  document.getElementById('res-smith').innerHTML =
+    rBox('T = τ',   fmt(T,4), 's',  'white')  +
+    rBox('L (Td)',  fmt(L,4), 's',  'white')  +
+    rBox('K',       fmt(K,6), 'EU/%','orange') +
+    rBox('ΔPV',     fmt(deltaPV,4),'EU','')   +
+    rBox('ΔOUT',    fmt(deltaOUT,4),'EU','');
+
+  // Tabla clásica
+  let rowsC = '';
+  for (const [ctrl, p] of Object.entries(params)) {
+    const ti = p.Ti !== null ? fmt(p.Ti,4) : '∞';
+    const td = p.Td !== null ? fmt(p.Td,4) : '0';
+    rowsC += `<tr>
+      <td class="ctrl">${ctrl}</td>
+      <td class="val">${fmt(p.Kp,4)}</td>
+      <td class="val">${ti}</td>
+      <td class="val">${td}</td>
+    </tr>`;
+  }
+  document.querySelector('#tabla-clasica tbody').innerHTML = rowsC;
+
+  // Tabla paralela
+  let rowsP = '';
+  for (const [ctrl, p] of Object.entries(params)) {
+    const Ki = (p.Ti !== null && p.Ti !== 0) ? fmt(p.Kp / p.Ti, 6) : '0';
+    const Kd = (p.Td !== null)               ? fmt(p.Kp * p.Td, 4) : '0';
+    rowsP += `<tr>
+      <td class="ctrl">${ctrl}</td>
+      <td class="val">${fmt(p.Kp,4)}</td>
+      <td class="val">${Ki}</td>
+      <td class="val">${Kd}</td>
+    </tr>`;
+  }
+  document.querySelector('#tabla-paralela tbody').innerHTML = rowsP;
+
+
+  /* ---- FUNCION DE TRANSFERENCIA EXACTA ---- */
+  const Kfmt = fmt(K, 4);
+  const Tfmt = fmt(T, 4);
+  const Lfmt = fmt(L, 4);
+
+  document.getElementById('ft-exact').innerHTML = `
+    <span class="ft-eq">G(s) =</span>
+    <div class="fraction">
+      <span class="num">${Kfmt}</span>
+      <span class="den">${Tfmt}s + 1</span>
+    </div>
+    <span class="ft-times">&middot;</span>
+    <span class="ft-delay">e<sup>-${Lfmt}s</sup></span>
+  `;
+
+  /* ---- APROXIMACION DE PADE ---- */
+  // e^(-Ls) ~= (1 - Ls/2) / (1 + Ls/2)
+  // G_pade = K*(1 - Ls/2) / [(Ts+1)*(1 + Ls/2)]
+  // Numerador: K*(1 - (L/2)s)  =>  coefs [K, -K*L/2]  (s^1, s^0)
+  // Denominador: expandir (Ts+1)(1+Ls/2)
+  //   = T*(L/2)*s^2 + (T + L/2)*s + 1
+  const L2 = L / 2;
+  const d2 = T * L2;           // coef s^2
+  const d1 = T + L2;           // coef s^1
+  const d0 = 1;                 // coef s^0
+  const n1 = K;                 // coef s^0 del numerador
+  const n0 = -K * L2;          // coef s^1 (negativo)
+
+  const signN0 = n0 >= 0 ? '+' : '-';
+  const absN0  = Math.abs(n0);
+
+  document.getElementById('pade-expand').innerHTML =
+    `<span>Padé:</span> e<sup>-Ls</sup> &asymp; <b>(1 - ${fmt(L2,4)}s) / (1 + ${fmt(L2,4)}s)</b><br>` +
+    `<span>Denominador expandido:</span> (${Tfmt}s + 1)(1 + ${fmt(L2,4)}s) = ` +
+    `<b>${fmt(d2,4)}s&sup2; + ${fmt(d1,4)}s + 1</b><br>` +
+    `<span>Numerador:</span> K&middot;(1 - ${fmt(L2,4)}s) = <b>${fmt(n1,4)} ${signN0} ${fmt(absN0,4)}s</b>`;
+
+  document.getElementById('ft-pade').innerHTML = `
+    <span class="ft-eq">G<sub>pade</sub>(s) =</span>
+    <div class="fraction">
+      <span class="num">${fmt(n1,4)} ${signN0} ${fmt(absN0,4)}s</span>
+      <span class="den">${fmt(d2,4)}s&sup2; + ${fmt(d1,4)}s + 1</span>
+    </div>
+  `;
+
+  /* ---- ROUTH-HURWITZ con controlador P ----
+     Lazo cerrado: 1 + Kp*G_pade = 0
+     => denominador*(Ts+1)(1+L2*s) + Kp*K*(1-L2*s) = 0
+     Polinomio: d2*s^2 + d1*s + d0 + Kp*(n1 + n0*s) = 0
+              = d2*s^2 + (d1 + Kp*n0)*s + (d0 + Kp*n1) = 0
+     NOTA: n0 = -K*L2 (negativo), n1 = K
+     Coeficientes del polinomio en s:
+       a0 = d2         (s^2)
+       a1 = d1 + Kp*n0 = (T + L2) + Kp*(-K*L2)
+       a2 = d0 + Kp*n1 = 1 + Kp*K
+
+     Tabla Routh 2x2:
+       Fila s^2: a0,  a2
+       Fila s^1: a1,  0
+       Fila s^0: a2   (= b1 = a1*a2/a1 = a2 si a1 != 0)
+
+     Condicion necesaria y suficiente: a0>0, a1>0, a2>0
+       a0 = d2 = T*L/2  -> siempre >0 si T,L>0
+       a2 = 1 + Kp*K    -> Kp > -1/K (siempre ok para Kp>0)
+       a1 > 0           -> (T + L2) - Kp*K*L2 > 0
+                        -> Kp < (T + L2) / (K*L2)
+  */
+
+  // Limite de Kp para estabilidad (de a1 > 0)
+  const KpMax = (d1) / (K * L2);  // d1 = T + L2
+
+  // Para mostrar la tabla con el Kp calculado (usamos el Kp del PID como referencia)
+  const KpRef = params.PID.Kp;  // solo para ilustrar la tabla con un valor concreto
+  const a0_val = d2;
+  const a1_val = d1 + KpRef * n0;  // n0 es negativo
+  const a2_val = d0 + KpRef * n1;
+
+  // Charla del polinomio
+  document.getElementById('routh-char-poly').innerHTML =
+    `<span>Polinomio caracteristico:</span> <b>${fmt(d2,4)}s&sup2; + [(${fmt(d1,4)}) &minus; ${fmt(K*L2,4)}&middot;Kp]s + [1 + ${fmt(K,4)}&middot;Kp] = 0</b><br>` +
+    `<span>Condicion de estabilidad (Routh):</span> ` +
+    `<b>a&#8321; &gt; 0 &rarr; Kp &lt; (T + L/2) / (K&middot;L/2)</b>`;
+
+  // Tabla Routh (simbolica con valor de Kp_PID como ejemplo)
+  const cls1 = a1_val > 0 ? 'rval' : 'rval neg';
+  const cls2 = a2_val > 0 ? 'rval' : 'rval neg';
+  document.querySelector('#tabla-routh tbody').innerHTML = `
+    <tr><td class="row-label">s&sup2;</td><td class="rval">${fmt(a0_val,4)}</td><td class="rval">${fmt(a2_val,4)}</td></tr>
+    <tr><td class="row-label">s&sup1;</td><td class="${cls1}">${fmt(a1_val,4)} <span style="font-size:10px;color:var(--text-dim)">(Kp=${fmt(KpRef,4)})</span></td><td class="rval">0</td></tr>
+    <tr><td class="row-label">s&sup0;</td><td class="${cls2}">${fmt(a2_val,4)}</td><td class="rval">—</td></tr>
+  `;
+
+  // Resultado de estabilidad
+  const stEl = document.getElementById('stability-result');
+  if (L < 1e-9) {
+    // Sin retardo, sistema siempre estable para Kp > 0
+    stEl.className = 'stability-result stable';
+    stEl.innerHTML = `<div class="s-title">Sistema sin retardo significativo</div>
+      <div>L &asymp; 0 &rarr; sistema estable para cualquier <span class="s-kp">Kp &gt; 0</span></div>`;
+  } else if (KpMax > 0) {
+    stEl.className = 'stability-result stable';
+    stEl.innerHTML = `<div class="s-title">&#10003; Rango de estabilidad calculado</div>
+      <div>Para estabilidad con controlador P:</div>
+      <div class="s-kp">0 &lt; Kp &lt; ${fmt(KpMax,4)}</div>
+      <div class="s-note">Derivado de: Kp &lt; (T + L/2) / (K &middot; L/2) = (${fmt(d1,4)}) / (${fmt(K*L2,4)}) = ${fmt(KpMax,4)}</div>
+      <div class="s-note">El Kp calculado (Smith-PID) = ${fmt(KpRef,4)} &mdash; ${KpRef < KpMax ? '&#10003; dentro del rango estable' : '&#9888; fuera del rango, sistema puede ser inestable'}</div>`;
+  } else {
+    stEl.className = 'stability-result unstable';
+    stEl.innerHTML = `<div class="s-title">&#9888; Inestable para todo Kp &gt; 0</div>
+      <div>El retardo es demasiado grande relativo a la constante de tiempo del proceso.</div>
+      <div class="s-note">Considera reducir el retardo de medicion o usar control con predictor de Smith.</div>`;
+  }
+
+
+  // Scroll suave
+  document.getElementById('results-section').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function resetear() {
+  ['pvmax','pvmin','outmax','outmin','t_ini','t_283','t_632']
+    .forEach(id => document.getElementById(id).value = '');
+  clearErr();
+  document.getElementById('results-section').style.display = 'none';
+}
+
+// Auto-formato mientras escribe horas
+['t_ini','t_283','t_632'].forEach(id => {
+  document.getElementById(id).addEventListener('input', function() {
+    // sólo deja dígitos y ":"
+    let v = this.value.replace(/[^\d:]/g,'');
+    this.value = v;
+  });
+});
+</script>
+</body>
+</html>
