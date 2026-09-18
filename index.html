@@ -181,6 +181,34 @@
   .btn.reset:hover { color:#000; }
   .btn.reset::after { background: var(--text-dim); }
 
+  .btn.pv-reference {
+    border-color: var(--accent2);
+    color: var(--accent2);
+  }
+  .btn.pv-reference:hover { color:#000; }
+  .btn.pv-reference::after { background: var(--accent2); }
+
+  .pv-reference-actions {
+    display: flex;
+    justify-content: center;
+    margin-top: 18px;
+  }
+  .pv-reference-panel {
+    display: none;
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px solid var(--border);
+  }
+  .pv-reference-panel.show { display: block; }
+  .pv-reference-note {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    line-height: 1.6;
+    margin-top: 10px;
+    text-align: center;
+  }
+
   /* ── RESULTADOS INTERMEDIOS ── */
   .results-grid {
     display: grid;
@@ -412,6 +440,21 @@
         <span class="hint">Salida mínima (%)</span>
       </div>
     </div>
+
+    <div class="pv-reference-actions">
+      <button type="button" class="btn pv-reference" onclick="calcularReferenciasPV()">
+        <span>◆ Calcular PV de referencia</span>
+      </button>
+    </div>
+
+    <div class="error-msg" id="pv-ref-error">⚠ Error: ingresa PV mín y PV máx.</div>
+
+    <div class="pv-reference-panel" id="pv-reference-panel" aria-live="polite">
+      <div class="results-grid" id="pv-reference-results"></div>
+      <div class="pv-reference-note">
+        Cálculo dentro del rango: PV% = PV mín + (PV máx − PV mín) × porcentaje
+      </div>
+    </div>
   </div>
 
   <!-- PASO 2: Tiempos -->
@@ -585,6 +628,52 @@ function clearErr() {
   document.getElementById('err-msg').classList.remove('show');
 }
 
+/* ─── VALORES PV AL 28.3% Y 63.2% ─── */
+function renderReferenciasPV(pvmin, pvmax) {
+  const deltaPV = pvmax - pvmin;
+  const pv283 = pvmin + deltaPV * 0.283;
+  const pv632 = pvmin + deltaPV * 0.632;
+
+  document.getElementById('pv-reference-results').innerHTML =
+    rBox('PV al 28.3%', fmt(pv283, 4), 'EU', 'green') +
+    rBox('PV al 63.2%', fmt(pv632, 4), 'EU', 'green') +
+    rBox('Rango ΔPV',   fmt(deltaPV, 4), 'EU', '');
+
+  document.getElementById('pv-reference-panel').classList.add('show');
+}
+
+function calcularReferenciasPV() {
+  const errorEl = document.getElementById('pv-ref-error');
+  const panelEl = document.getElementById('pv-reference-panel');
+  const pvmaxText = document.getElementById('pvmax').value.trim();
+  const pvminText = document.getElementById('pvmin').value.trim();
+
+  errorEl.classList.remove('show');
+  panelEl.classList.remove('show');
+
+  if (pvmaxText === '' || pvminText === '') {
+    errorEl.textContent = '⚠ Ingresa PV mín y PV máx para calcular los puntos de referencia.';
+    errorEl.classList.add('show');
+    return;
+  }
+
+  const pvmax = Number(pvmaxText);
+  const pvmin = Number(pvminText);
+
+  if (!Number.isFinite(pvmax) || !Number.isFinite(pvmin)) {
+    errorEl.textContent = '⚠ Los valores de PV deben ser números válidos.';
+    errorEl.classList.add('show');
+    return;
+  }
+  if (pvmax <= pvmin) {
+    errorEl.textContent = '⚠ PV máx debe ser mayor que PV mín.';
+    errorEl.classList.add('show');
+    return;
+  }
+
+  renderReferenciasPV(pvmin, pvmax);
+}
+
 /* ─── CÁLCULO PRINCIPAL ─── */
 function calcular() {
   clearErr();
@@ -601,6 +690,10 @@ function calcular() {
   }
   if (pvmax <= pvmin)  { showErr('PV máx debe ser mayor que PV mín.'); return; }
   if (outmax <= outmin){ showErr('OUT máx debe ser mayor que OUT mín.'); return; }
+
+  // Mantener visibles también las referencias rápidas de PV.
+  document.getElementById('pv-ref-error').classList.remove('show');
+  renderReferenciasPV(pvmin, pvmax);
 
   // Leer tiempos
   const tIni = parseTime(document.getElementById('t_ini').value);
@@ -814,8 +907,18 @@ function resetear() {
   ['pvmax','pvmin','outmax','outmin','t_ini','t_283','t_632']
     .forEach(id => document.getElementById(id).value = '');
   clearErr();
+  document.getElementById('pv-ref-error').classList.remove('show');
+  document.getElementById('pv-reference-panel').classList.remove('show');
+  document.getElementById('pv-reference-results').innerHTML = '';
   document.getElementById('results-section').style.display = 'none';
 }
+
+// Permite calcular las referencias presionando Enter en PV mín o PV máx.
+['pvmin','pvmax'].forEach(id => {
+  document.getElementById(id).addEventListener('keydown', function(event) {
+    if (event.key === 'Enter') calcularReferenciasPV();
+  });
+});
 
 // Auto-formato mientras escribe horas
 ['t_ini','t_283','t_632'].forEach(id => {
